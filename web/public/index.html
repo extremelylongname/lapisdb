@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAPIS Source DB</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" defer></script>
+  <script src="/app.js" type="module"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a href="/" class="brand"><img src="/lapis-logo.png" alt="LAPIS" class="logo">LAPIS Source DB</a>
+    <form id="topsearch" class="topsearch">
+      <input name="q" placeholder="Name, catalog ID (e.g. 09947:1234), or RA Dec" autocomplete="off">
+    </form>
+    <nav id="usernav"></nav>
+  </header>
+  <main id="main"></main>
+</body>
+</html>

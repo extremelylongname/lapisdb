@@ -1,0 +1,5 @@
+*.fits
+*.fits.gz
+__pycache__/
+.venv/
+*.whl

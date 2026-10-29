@@ -1,0 +1,14 @@
+[project]
+name = "lapisdb"
+version = "0.1.0"
+description = "Client, CLI and MCP server for the LAPIS source annotation database"
+requires-python = ">=3.10"
+dependencies = ["requests", "numpy", "astropy", "mcp>=2.3"]
+
+[project.scripts]
+lapisdb = "lapisdb.cli:main"
+lapisdb-mcp = "lapisdb.mcp_server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

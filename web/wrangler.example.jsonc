@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "lapis-db",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "routes": [{ "pattern": "<your-domain>", "custom_domain": true }],
+  // run near the FitsMap server: far-away data centers fetch tiles slowly
+  "placement": { "region": "aws:us-west-1" },
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "lapis-db", "database_id": "<from: wrangler d1 create lapis-db>" }
+  ],
+  "r2_buckets": [
+    { "binding": "BUCKET", "bucket_name": "lapis-db" }
+  ],
+  // comma-separated usernames allowed to ingest fields/catalogs
+  "vars": { "ADMIN_USERS": "<admin usernames>" },
+  "observability": { "enabled": true }
+}

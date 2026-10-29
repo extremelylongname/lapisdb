@@ -1,0 +1,19 @@
+{
+  "name": "lapis-db",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init:local": "wrangler d1 execute lapis-db --local --file=schema.sql",
+    "db:init:remote": "wrangler d1 execute lapis-db --remote --file=schema.sql"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261028.1",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.154.0"
+  },
+  "dependencies": {
+    "hono": "^4.13.14"
+  }
+}
