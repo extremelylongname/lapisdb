@@ -36,7 +36,7 @@ button.ghost { background: transparent; }
 .topsearch { flex: 1; max-width: 560px; }
 .topsearch input { width: 100%; }
 #usernav { margin-left: auto; display: flex; gap: 14px; white-space: nowrap; align-items: center; }
-.inbox { position: relative; }
+.inbox, .menu { position: relative; }
 .inbox .iconbtn { position: relative; }
 .badge { position: absolute; top: -2px; right: -4px; background: var(--accent); color: #fff; border-radius: 999px; font-size: 10.5px; font-weight: 700; line-height: 16px; min-width: 16px; padding: 0 4px; text-align: center; }
 .inboxpanel { position: absolute; right: 0; top: calc(100% + 8px); width: 400px; max-height: 70vh; overflow-y: auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,0.12); padding: 6px 0; white-space: normal; z-index: 20; }

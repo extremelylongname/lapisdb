@@ -7,6 +7,7 @@ from pathlib import Path
 from .client import Client, save_config
 from .ingest import ingest, upload_background, upload_eazy
 from .sed import read_pz, read_sed
+from .sync import sync
 
 
 def show_source(s):
@@ -96,6 +97,10 @@ def main():
     a.add_argument("--notes")
     a.add_argument("--z-col")
     a.add_argument("--p-col")
+    a = sub.add_parser("sync", help="mirror all comments, object types and uploaded fits into a local folder (rsync-style)")
+    a.add_argument("folder")
+    a.add_argument("--no-uploads", action="store_true", help="skip the uploaded SED fit / P(z) files")
+    a.add_argument("--delete", action="store_true", help="remove local upload files that were deleted on the site")
     a = sub.add_parser("admin-ingest", help="[admin] add a catalog release for a field (never overwrites)")
     a.add_argument("catalog")
     a.add_argument("--field-id", required=True, help="e.g. jw10790-09947")
@@ -158,6 +163,8 @@ def main():
         data = read_pz(args.file, args.z_col, args.p_col)
         r = c.upload_sed(uid, data, args.label, args.code, None, args.notes, Path(args.file).name, kind="pz")
         print(f"Uploaded P(z) #{r['id']} ({len(data['z'])} points) to {uid}")
+    elif args.cmd == "sync":
+        sync(c, args.folder, uploads=not args.no_uploads, delete=args.delete)
     elif args.cmd == "admin-ingest":
         ingest(c, args.catalog, args.field_id, args.version, map_url=args.map_url, label=args.label,
                default_aperture=args.aperture, match_radius=args.match_radius, notes=args.notes)

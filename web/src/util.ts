@@ -27,6 +27,14 @@ export function angSepArcsec(ra1: number, dec1: number, ra2: number, dec2: numbe
   return (2 * Math.asin(Math.sqrt(s)) * 180 * 3600) / Math.PI;
 }
 
+// Rows of objects -> CSV text (header from the first row's keys)
+export function toCsv(rows: Record<string, unknown>[]) {
+  if (!rows.length) return "";
+  const cell = (v: unknown) => (v == null ? "" : /[",\n\r]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
+  const cols = Object.keys(rows[0]);
+  return [cols.join(","), ...rows.map((r) => cols.map((k) => cell(r[k])).join(","))].join("\n") + "\n";
+}
+
 // "03:14:03.4 -18:03:10.9", "03 14 03.4 -18 03 10.9", "48.51 -18.05" -> [ra, dec] in degrees
 export function parseCoords(q: string): [number, number] | null {
   const parts = q.replace(/,/g, " ").trim().split(/\s+/);

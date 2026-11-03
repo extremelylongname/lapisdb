@@ -7,6 +7,7 @@ const PALETTE = ["#c2410c", "#1d4ed8", "#047857", "#7c3aed", "#b91c1c", "#0e7490
 let ME = null;
 let TEMPLATES = null;
 const ICON_COPY = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>`;
+const ICON_DOWNLOAD = `<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>`;
 const ICON_BELL = `<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`;
 const ICON_CHECK = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>`;
 
@@ -69,7 +70,7 @@ function go(path) {
 }
 document.addEventListener("click", (e) => {
   const a = e.target.closest("a[href^='/']");
-  if (!a || a.target || e.metaKey || e.ctrlKey || e.shiftKey) return;
+  if (!a || a.target || a.hasAttribute("download") || e.metaKey || e.ctrlKey || e.shiftKey) return;
   e.preventDefault();
   go(a.getAttribute("href"));
 });
@@ -105,12 +106,32 @@ async function route() {
 }
 
 function renderNav() {
-  $("#usernav").innerHTML = `<div class="inbox"><button class="iconbtn" id="inboxbtn" title="Inbox" aria-label="Inbox">${ICON_BELL}<span class="badge" hidden></span></button><div class="inboxpanel" id="inboxpanel" hidden></div></div>
+  $("#usernav").innerHTML = `<div class="menu"><button class="iconbtn" id="exportbtn" title="Download annotations" aria-label="Download annotations">${ICON_DOWNLOAD}</button><div class="inboxpanel" id="exportpanel" hidden>
+      <div class="inboxhead">Download annotations</div>
+      <ul>${EXPORTS.map(([f, what]) => `<li><a href="/api/export/${f}" download="lapisdb_${f}"><div>${what}</div><div class="small muted mono">lapisdb_${f}</div></a></li>`).join("")}</ul>
+      <p class="muted small">To keep a local copy up to date: <code>lapisdb sync &lt;folder&gt;</code></p></div></div>
+    <div class="inbox"><button class="iconbtn" id="inboxbtn" title="Inbox" aria-label="Inbox">${ICON_BELL}<span class="badge" hidden></span></button><div class="inboxpanel" id="inboxpanel" hidden></div></div>
     <a href="/help">Help</a><a href="/account">${esc(ME.username)}</a><a href="#" id="logout">Sign out</a>`;
   $("#inboxbtn").onclick = (e) => {
     e.stopPropagation();
+    $("#exportpanel").hidden = true;
     const panel = $("#inboxpanel");
     panel.hidden ? openInbox() : (panel.hidden = true);
+  };
+  $("#exportbtn").onclick = (e) => {
+    e.stopPropagation();
+    $("#inboxpanel").hidden = true;
+    $("#exportpanel").hidden = !$("#exportpanel").hidden;
+  };
+  $("#exportpanel").onclick = async (e) => {
+    const a = e.target.closest("a[download]");
+    if (!a) return;
+    e.preventDefault();
+    const r = await fetch(a.getAttribute("href"));
+    if (!r.ok) return console.error(`Export failed: HTTP ${r.status}`);
+    const url = URL.createObjectURL(await r.blob());
+    Object.assign(document.createElement("a"), { href: url, download: a.getAttribute("download") }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   refreshInboxBadge();
   $("#logout").onclick = async (e) => {
@@ -120,6 +141,13 @@ function renderNav() {
     go("/login");
   };
 }
+
+const EXPORTS = [
+  ["comments.csv", "Comments"],
+  ["votes.csv", "Object-type votes (one row per vote)"],
+  ["otypes.csv", "Object-type net scores per source"],
+  ["lapisdb.json", "Everything, incl. uploaded fit details (JSON)"],
+];
 
 // ---------------------------------------------------------------- inbox (top-bar dropdown)
 const INBOX_KINDS = { comment: "commented on", upvote: "upvoted", downvote: "downvoted", sed: "uploaded an SED fit to", pz: "uploaded a P(z) to" };
@@ -149,10 +177,10 @@ async function openInbox() {
   $("#inboxbtn .badge").hidden = true;
 }
 
+// close top-bar dropdowns on outside clicks and after following a link in them
 document.addEventListener("click", (e) => {
-  const panel = $("#inboxpanel");
-  if (panel && !panel.hidden && !e.target.closest(".inbox")) panel.hidden = true;
-  if (panel && e.target.closest("#inboxpanel a")) panel.hidden = true;
+  for (const p of document.querySelectorAll(".inboxpanel"))
+    if (!p.hidden && (!p.parentElement.contains(e.target) || e.target.closest(".inboxpanel a"))) p.hidden = true;
 });
 
 // ---------------------------------------------------------------- login / sign-up
@@ -1057,7 +1085,8 @@ lapisdb classify "Brown dwarf" 09947:1234 09947:5678 --note "F277W-F444W > 1.5" 
 lapisdb downvote "Galaxy" 09947:1234
 lapisdb comment 09947:1234 "Spectroscopic follow-up?"
 lapisdb upload-sed 09947:1234 fit.fits --label "Bagpipes" --wave-unit AA --flux-unit erg/s/cm2/AA
-lapisdb upload-pz 09947:1234 pz.txt --label "EAZY rerun"   # columns z, P</pre>
+lapisdb upload-pz 09947:1234 pz.txt --label "EAZY rerun"   # columns z, P
+lapisdb sync ~/lapisdb_annotations    # mirror comments, object types and uploaded fits; rerun to fetch only what changed</pre>
   <h3>MCP Server (Claude and Other AI Assistants)</h3>
   <pre>claude mcp add lapisdb -- lapisdb-mcp</pre>
   <p>It uses the same login as the command-line client.</p>

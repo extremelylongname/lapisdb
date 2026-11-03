@@ -1,6 +1,6 @@
 import { Hono, Context, Next } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
-import { now, randomToken, sha256, hashPassword, angSepArcsec, parseCoords, readFitsMap } from "./util";
+import { now, randomToken, sha256, hashPassword, angSepArcsec, parseCoords, readFitsMap, toCsv } from "./util";
 
 type Bindings = {
   DB: D1Database;
@@ -486,6 +486,33 @@ app.get("/api/recent", async (c) => {
     .bind(Math.min(parseInt(c.req.query("limit") ?? "40"), 200))
     .all();
   return c.json(results);
+});
+
+// ---------------------------------------------------------------- export (download button, `lapisdb sync`)
+const CAT_IDS = "(SELECT replace(group_concat(DISTINCT d.field_id || ':' || d.cat_id), ',', ' ') FROM detections d WHERE d.uid = x.uid) AS cat_ids";
+const EXPORT_SQL: Record<string, string> = {
+  comments: `SELECT x.id, x.uid, ${CAT_IDS}, x.username, x.created_at, x.edited_at, x.body FROM comments x WHERE x.deleted = 0 ORDER BY x.id`,
+  votes: `SELECT x.id, x.uid, ${CAT_IDS}, x.otype, x.vote, x.username, x.note, x.created_at FROM otypes x WHERE x.retracted_at IS NULL ORDER BY x.id`,
+  otypes: `SELECT x.uid, ${CAT_IDS}, x.otype, SUM(x.vote) AS score, SUM(x.vote > 0) AS n_up, SUM(x.vote < 0) AS n_down
+           FROM otypes x WHERE x.retracted_at IS NULL GROUP BY x.uid, x.otype ORDER BY x.uid, score DESC, x.otype`,
+  uploads: `SELECT x.id, x.uid, ${CAT_IDS}, x.kind, x.username, x.label, x.code, x.redshift, x.notes, x.original_name, x.n_points, x.created_at
+            FROM seds x WHERE x.deleted = 0 ORDER BY x.id`,
+};
+
+app.get("/api/export/:file", async (c) => {
+  const file = c.req.param("file");
+  const [name, ext] = file.split(".");
+  const tables = name === "lapisdb" && ext === "json" ? Object.keys(EXPORT_SQL) : ext === "csv" && EXPORT_SQL[name] ? [name] : [];
+  if (!tables.length) return c.json({ error: "Unknown export" }, 404);
+  const res = await c.env.DB.batch(tables.map((t) => c.env.DB.prepare(EXPORT_SQL[t])));
+  const body = ext === "csv" ? toCsv(res[0].results as any[]) : JSON.stringify(Object.fromEntries(tables.map((t, i) => [t, res[i].results])));
+  return new Response(body, {
+    headers: {
+      "Content-Type": ext === "csv" ? "text/csv; charset=utf-8" : "application/json",
+      "Content-Disposition": `attachment; filename="lapisdb_${file}"`,
+      "Cache-Control": "no-store",
+    },
+  });
 });
 
 // ---------------------------------------------------------------- admin: additive data ingestion

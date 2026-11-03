@@ -29,17 +29,20 @@ class Client:
         self.session = requests.Session()
         self.session.headers["Authorization"] = f"Bearer {self.token}"
 
-    def request(self, method, path, retries=5, **kw):
+    def send(self, method, path, retries=5, **kw):
         # retry transient server/network errors with exponential backoff
         for attempt in range(retries + 1):
             try:
                 r = self.session.request(method, f"{self.url}{path}", timeout=120, **kw)
                 if r.status_code < 500 or attempt == retries:
-                    break
+                    return r
             except (requests.ConnectionError, requests.Timeout):
                 if attempt == retries:
                     raise
             time.sleep(2 ** attempt)
+
+    def request(self, method, path, **kw):
+        r = self.send(method, path, **kw)
         try:
             data = r.json()
         except ValueError:
@@ -47,6 +50,12 @@ class Client:
         if not r.ok:
             raise RuntimeError(f"{method} {path}: HTTP {r.status_code}: {data.get('error', data)}")
         return data
+
+    def download(self, path):
+        r = self.send("GET", path)
+        if not r.ok:
+            raise RuntimeError(f"GET {path}: HTTP {r.status_code}")
+        return r.content
 
     def get(self, path, **params):
         return self.request("GET", path, params=params)
