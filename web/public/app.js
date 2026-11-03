@@ -1034,7 +1034,8 @@ function helpPage() {
   <h3>Finding a Source</h3>
   <ul><li><b>Name</b>: <code>LAPIS-J031403.46-180310.9</code>. Every source has one permanent page at <code>${o}/source/&lt;name&gt;</code>.</li>
   <li><b>Catalog ID</b>: <code>09947:1234</code> or <code>jw10790-09947 1234</code> (field, then ID). A bare <code>1234</code> lists matches in every field.</li>
-  <li><b>Coordinates</b>: <code>48.5144 -18.0530</code> or <code>03:14:03.46 -18:03:10.9</code> (1″ radius; larger radii offered if empty).</li></ul>
+  <li><b>Coordinates</b>: <code>48.5144 -18.0530</code> or <code>03:14:03.46 -18:03:10.9</code> (1″ radius; larger radii offered if empty).</li>
+  <li><b>FitsMap link</b>: paste the map's address bar (<code>…/map/?ra=48.51&amp;dec=-18.05&amp;zoom=7</code>) to open the source nearest the map center (within 60″).</li></ul>
   <h3>From the Terminal</h3>
   <p>Create a token on your <a href="/account">account page</a>, then either use <code>curl</code>:</p>
   <pre>export LAPIS_TOKEN=lapis_...

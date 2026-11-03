@@ -157,7 +157,16 @@ async function cone(db: D1Database, ra: number, dec: number, radius: number) {
 // Turn any user query into matching source uids
 async function resolve(db: D1Database, q: string, radius = 1.0): Promise<{ uid: string; sep_arcsec?: number }[]> {
   q = q.trim();
-  const name = q.replace(/^LAPIS[\s_-]*J/i, "LAPIS-J");
+  // FitsMap link (".../map/?ra=..&dec=..&zoom=..") -> the source nearest the map center
+  const fm = /^https?:\/\/\S*[?&]ra=([-+\d.]+)\S*[?&]dec=([-+\d.]+)/.exec(q);
+  if (fm) {
+    for (const r of [5, 60]) {
+      const hits = await cone(db, parseFloat(fm[1]), parseFloat(fm[2]), r);
+      if (hits.length) return hits.slice(0, 1);
+    }
+    return [];
+  }
+  const name =q.replace(/^LAPIS[\s_-]*J/i, "LAPIS-J");
   if (/^LAPIS-J/i.test(name)) {
     const r = await db.prepare("SELECT uid FROM sources WHERE uid = ? COLLATE NOCASE").bind(name).first<any>();
     return r ? [r] : [];
