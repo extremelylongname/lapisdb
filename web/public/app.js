@@ -316,7 +316,8 @@ async function sourcePage(uid) {
       <details><summary>Upload an SED fit or P(z)</summary>${sedUploadForm()}</details></section>
   <section class="card"><div class="cardhead"><h2>Color–Color</h2><div class="controls" id="ccaxes"></div></div>
     <div class="ccrow"><div id="ccplot" class="plot"></div><div id="cctoggles" class="toggles"></div></div></section>
-  <section class="card"><h2>Catalog Data</h2><div id="catdata">${s.detections.map((d) => `<details data-rel="${esc(d.release_id)}" data-cat="${d.cat_id}"><summary>${esc(d.release_id)} · ID ${d.cat_id}</summary><div class="catbody muted">Loading…</div></details>`).join("")}</div></section>`;
+  <section class="card"><h2>Catalog Data</h2><div id="catdata">${s.detections.map((d) => `<details data-rel="${esc(d.release_id)}" data-cat="${d.cat_id}"><summary>${esc(d.release_id)} · ID ${d.cat_id}</summary><div class="catbody muted">Loading…</div></details>`).join("")}</div></section>
+  <section class="card"><h2>History</h2><div id="history"></div></section>`;
 
   $("#copylink").onclick = () => {
     navigator.clipboard.writeText(`${location.origin}/source/${encodeURIComponent(s.uid)}`);
@@ -328,6 +329,7 @@ async function sourcePage(uid) {
   // re-fetch the source and redraw only the affected parts
   const refresh = async (...parts) => {
     Object.assign(s, await api(`/api/sources/${encodeURIComponent(uid)}`));
+    renderHistory(s);
     if (parts.includes("otypes")) renderOtypes(s, refresh);
     if (parts.includes("comments")) renderComments(s, refresh);
     if (parts.includes("seds")) {
@@ -341,6 +343,7 @@ async function sourcePage(uid) {
   renderComments(s, refresh);
   renderOtypes(s, refresh);
   renderSedList(s, refresh);
+  renderHistory(s);
   setupSedUpload(s, refresh);
   main.querySelectorAll("#catdata details").forEach((d) => d.addEventListener("toggle", () => d.open && loadCatalogRow(d), { once: true }));
   await setupSed(state);
@@ -861,6 +864,19 @@ function sourceColor(phot, x1, x2, y1, y2) {
 }
 
 // ---------------------------------------------------------------- discussion & object types
+// Log of every annotation on this source (including changed/withdrawn votes) plus catalog releases, oldest first
+const HISTORY_KINDS = { comment: "commented", upvote: "upvoted this as", downvote: "downvoted this as", sed: "uploaded an SED fit", pz: "uploaded a P(z)",
+  unupvote: "withdrew their upvote of", undownvote: "withdrew their downvote of" };
+function renderHistory(s) {
+  const releases = [...new Map(s.detections.map((d) => [d.release_id, d])).values()]
+    .map((d) => ({ kind: "release", text: d.release_id, created_at: d.ingested_at }));
+  const ev = [...s.history, ...releases].sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+  $("#history").innerHTML = `<ul class="activity">${ev.map((r) => `<li><span class="muted">${when(r.created_at)}</span> ${
+    r.kind === "release" ? `Catalog <i>${esc(r.text)}</i> added`
+    : `<b>${esc(r.username)}</b> ${HISTORY_KINDS[r.kind]}${
+      r.kind === "comment" ? `<div class="snippet">${esc(r.text)}</div>` : r.kind === "sed" || r.kind === "pz" ? `: <i>${esc(r.text)}</i>` : ` <i>${esc(r.text)}</i>`}`}</li>`).join("")}</ul>`;
+}
+
 function renderComments(s, refresh) {
   const box = $("#comments");
   box.innerHTML = s.comments.length

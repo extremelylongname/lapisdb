@@ -226,12 +226,25 @@ app.get("/api/search", async (c) => {
   return c.json(results.map(summarize));
 });
 
+// Every annotation event on one source, oldest first, including votes later changed or withdrawn.
+// A vote that was replaced by a new vote (same user and type, within 2 s) is not listed as withdrawn.
+const HISTORY_SQL = `
+  SELECT * FROM (
+    SELECT 'comment' AS kind, username, body AS text, created_at FROM comments WHERE uid = ?1 AND deleted = 0
+    UNION ALL SELECT CASE WHEN vote > 0 THEN 'upvote' ELSE 'downvote' END, username, otype, created_at FROM otypes WHERE uid = ?1
+    UNION ALL SELECT CASE WHEN o.vote > 0 THEN 'unupvote' ELSE 'undownvote' END, o.username, o.otype, o.retracted_at FROM otypes o
+      WHERE o.uid = ?1 AND o.retracted_at IS NOT NULL AND NOT EXISTS (
+        SELECT 1 FROM otypes n WHERE n.uid = o.uid AND n.otype = o.otype AND n.username = o.username
+          AND n.created_at >= o.retracted_at AND julianday(n.created_at) - julianday(o.retracted_at) < 2 / 86400.0)
+    UNION ALL SELECT kind, username, label, created_at FROM seds WHERE uid = ?1 AND deleted = 0)
+  ORDER BY created_at`;
+
 app.get("/api/sources/:uid", async (c) => {
   const uid = c.req.param("uid");
   const db = c.env.DB;
   const src = await db.prepare("SELECT * FROM sources WHERE uid = ?").bind(uid).first();
   if (!src) return c.json({ error: "Source not found" }, 404);
-  const [dets, ots, coms, seds] = await db.batch([
+  const [dets, ots, coms, seds, hist] = await db.batch([
     db.prepare(`SELECT d.*, r.version, r.filters, r.apertures, r.default_aperture, r.ingested_at,
                        f.label AS field_label, f.map_url, f.map_meta
                 FROM detections d JOIN releases r USING (release_id) JOIN fields f ON f.field_id = d.field_id
@@ -239,6 +252,7 @@ app.get("/api/sources/:uid", async (c) => {
     db.prepare("SELECT * FROM otypes WHERE uid = ? AND retracted_at IS NULL ORDER BY created_at").bind(uid),
     db.prepare("SELECT id, username, body, created_at, edited_at FROM comments WHERE uid = ? AND deleted = 0 ORDER BY created_at").bind(uid),
     db.prepare("SELECT id, username, kind, label, code, redshift, notes, original_name, n_points, created_at FROM seds WHERE uid = ? AND deleted = 0 ORDER BY created_at").bind(uid),
+    db.prepare(HISTORY_SQL).bind(uid),
   ]);
   const detections = dets.results.map((d: any) => ({
     ...d,
@@ -248,7 +262,7 @@ app.get("/api/sources/:uid", async (c) => {
     apertures: parse(d.apertures),
     map_meta: parse(d.map_meta),
   }));
-  return c.json({ ...src, detections, otypes: ots.results, comments: coms.results, seds: seds.results });
+  return c.json({ ...src, detections, otypes: ots.results, comments: coms.results, seds: seds.results, history: hist.results });
 });
 
 // Stored gzipped JSON from R2, passed through without decompressing
