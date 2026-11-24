@@ -7,6 +7,9 @@ const PALETTE = ["#c2410c", "#1d4ed8", "#047857", "#7c3aed", "#b91c1c", "#0e7490
 let ME = null;
 let TEMPLATES = null;
 const ICON_COPY = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>`;
+const arrowIcon = (d) => `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+const ICON_UP = arrowIcon("M12 19V5M5 12l7-7 7 7");
+const ICON_DOWN = arrowIcon("M12 5v14M5 12l7 7 7-7");
 const ICON_DOWNLOAD = `<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>`;
 const ICON_BELL = `<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`;
 const ICON_CHECK = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>`;
@@ -305,9 +308,10 @@ async function sourcePage(uid) {
     <div id="cutouts"></div></section>
   <section class="card"><div class="cardhead"><h2>Spectral Energy Distribution and P(z)</h2><div class="controls">
       <label>Aperture <select id="aper"></select></label>
-      <label>Units <select id="sedunits"><option value="njy">nJy</option><option value="ab">AB mag</option></select></label></div></div>
+      <label>Units <select id="sedunits"><option value="njy">nJy</option><option value="ab">AB mag</option></select></label>
+      <label>Redshift <select id="pzmode"><option value="pz">P(z)</option><option value="chi2">χ² surface</option></select></label></div></div>
       <div class="sedrow"><div id="sedplot" class="plot"></div><div id="pzplot" class="plot"></div></div>
-      <p class="small muted">Triangles: ${UL_SNR}σ upper limits (S/N &lt; ${UL_SNR}). Horizontal bars: filter bandwidths. Catalog P(z) is binned in Δz = 1 centred on integer z, with z_a dashed; every P(z) is scaled to a peak of 1. Click legend entries to toggle.</p>
+      <p class="small muted">Click the legend items to show/hide corresponding SEDs.</p>
       <h3>Uploaded SED Fits and P(z)</h3><div id="sedlist"></div>
       <details><summary>Upload an SED fit or P(z)</summary>${sedUploadForm()}</details></section>
   <section class="card"><div class="cardhead"><h2>Color–Color</h2><div class="controls" id="ccaxes"></div></div>
@@ -340,6 +344,7 @@ async function sourcePage(uid) {
   setupSedUpload(s, refresh);
   main.querySelectorAll("#catdata details").forEach((d) => d.addEventListener("toggle", () => d.open && loadCatalogRow(d), { once: true }));
   await setupSed(state);
+  $("#pzmode").onchange = () => drawPz(state);
   await drawPz(state);
   await setupColorColor(state);
 }
@@ -620,16 +625,28 @@ async function drawPz(state) {
       hovertemplate: "z = %{x}<br>P = %{y:.3g}<extra>%{fullData.name}</extra>",
     });
   }
-  // default view: where any curve is above 1% of its peak, plus the z_a marks
+  // default view: where any curve is above 1% of its peak (chi^2 view: within chi^2_min + 30), plus the z_a marks
+  const chi2 = $("#pzmode").value === "chi2";
   const zs = marks.map((m) => m.za);
-  for (const t of traces) t.y.forEach((v, k) => v >= 0.01 && zs.push(t.x[k], ...(t.line.shape === "hv" ? [t.x[k + 1]] : [])));
+  for (const t of traces) t.y.forEach((v, k) => v >= (chi2 ? Math.exp(-15) : 0.01) && zs.push(t.x[k], ...(t.line.shape === "hv" ? [t.x[k + 1]] : [])));
   const [lo, hi] = zs.length ? [Math.min(...zs), Math.max(...zs)] : [0, 15];
   const pad = Math.max(0.5, 0.1 * (hi - lo));
+  // chi^2 surface from P(z) = exp(-(chi^2 - chi^2_min) / 2) (as in JADESView); zero-probability bins become gaps
+  let ytop = 1.05;
+  if (chi2) {
+    for (const t of traces) {
+      t.y = t.y.map((v) => (v > 0 ? -2 * Math.log(v) : null));
+      t.fill = "none";
+      t.hovertemplate = "z = %{x}<br>Δχ² = %{y:.3g}<extra>%{fullData.name}</extra>";
+    }
+    const inView = traces.flatMap((t) => t.y.filter((v, k) => v != null && t.x[k] >= lo - pad && t.x[k] <= hi + pad));
+    ytop = Math.min(30, Math.max(1, ...inView));
+  }
   // z_a of each catalog P(z), toggled together with its curve
   for (const m of marks)
     traces.push({
       x: [m.za, m.za],
-      y: [0, 1.05],
+      y: [0, ytop],
       mode: "lines",
       line: { color: m.color, width: 1.5, dash: "dash" },
       legendgroup: m.name,
@@ -642,7 +659,9 @@ async function drawPz(state) {
     traces,
     plotLayout("Redshift", "P(z) / P<sub>max</sub>", {
       xaxis: { ...plotLayout().xaxis, title: "Redshift", range: [Math.max(0, lo - pad), hi + pad] },
-      yaxis: { ...plotLayout().yaxis, title: "P(z) / P<sub>max</sub>", range: [0, 1.08] },
+      yaxis: chi2
+        ? { ...plotLayout().yaxis, title: "χ² − χ²<sub>min</sub>", range: [0, ytop * 1.03] }
+        : { ...plotLayout().yaxis, title: "P(z) / P<sub>max</sub>", range: [0, 1.08] },
       legend: { x: 0.99, xanchor: "right", y: 0.99, font: { size: 10 } },
     }),
     { responsive: true, displaylogo: false },
@@ -888,7 +907,7 @@ async function renderOtypes(s, refresh) {
     Object.entries(agg)
       .sort((x, y) => y[1].score - x[1].score)
       .map(([t, a]) => `<span class="pill${a.score <= 0 ? " neg" : ""}" data-otype="${esc(t)}" title="${esc(`▲ ${a.up.join(", ") || "–"}   ▼ ${a.down.join(", ") || "–"}`)}">
-        <button class="vote${a.mine > 0 ? " on" : ""}" data-v="1" aria-label="upvote">▲</button><a href="/search?otype=${encodeURIComponent(t)}">${esc(t)}</a><span class="score">${a.score > 0 ? "+" : ""}${a.score}</span><button class="vote${a.mine < 0 ? " on" : ""}" data-v="-1" aria-label="downvote">▼</button></span>`)
+        <button class="vote${a.mine > 0 ? " on" : ""}" data-v="1" aria-label="upvote">${ICON_UP}</button><a href="/search?otype=${encodeURIComponent(t)}">${esc(t)}</a><span class="score">${a.score > 0 ? "+" : ""}${a.score}</span><button class="vote${a.mine < 0 ? " on" : ""}" data-v="-1" aria-label="downvote">${ICON_DOWN}</button></span>`)
       .join("") + `<button class="pill add" id="addotype" title="Add an object type">+</button>`;
   const vote = async (otype, v) => {
     await api(`/api/sources/${encodeURIComponent(s.uid)}/otypes`, { method: "POST", body: { otype, vote: v } });
