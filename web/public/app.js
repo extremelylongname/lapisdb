@@ -628,7 +628,7 @@ async function drawPz(state) {
   // default view: where any curve is above 1% of its peak (chi^2 view: within chi^2_min + 30), plus the z_a marks
   const chi2 = $("#pzmode").value === "chi2";
   const zs = marks.map((m) => m.za);
-  for (const t of traces) t.y.forEach((v, k) => v >= (chi2 ? Math.exp(-15) : 0.01) && zs.push(t.x[k], ...(t.line.shape === "hv" ? [t.x[k + 1]] : [])));
+  for (const t of traces) t.y.forEach((v, k) => v >= (chi2 ? Math.exp(-15) : 0.01) && zs.push(t.x[k], ...(t.line.shape === "hv" && k + 1 < t.x.length ? [t.x[k + 1]] : [])));
   const [lo, hi] = zs.length ? [Math.min(...zs), Math.max(...zs)] : [0, 15];
   const pad = Math.max(0.5, 0.1 * (hi - lo));
   // chi^2 surface from P(z) = exp(-(chi^2 - chi^2_min) / 2) (as in JADESView); zero-probability bins become gaps
