@@ -864,13 +864,13 @@ function sourceColor(phot, x1, x2, y1, y2) {
 }
 
 // ---------------------------------------------------------------- discussion & object types
-// Log of every annotation on this source (including changed/withdrawn votes) plus catalog releases, oldest first
+// Log of every annotation on this source (including changed/withdrawn votes) plus catalog releases, newest first
 const HISTORY_KINDS = { comment: "commented", upvote: "upvoted this as", downvote: "downvoted this as", sed: "uploaded an SED fit", pz: "uploaded a P(z)",
   unupvote: "withdrew their upvote of", undownvote: "withdrew their downvote of" };
 function renderHistory(s) {
   const releases = [...new Map(s.detections.map((d) => [d.release_id, d])).values()]
     .map((d) => ({ kind: "release", text: d.release_id, created_at: d.ingested_at }));
-  const ev = [...s.history, ...releases].sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+  const ev = [...s.history, ...releases].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   $("#history").innerHTML = `<ul class="activity">${ev.map((r) => `<li><span class="muted">${when(r.created_at)}</span> ${
     r.kind === "release" ? `Catalog <i>${esc(r.text)}</i> added`
     : `<b>${esc(r.username)}</b> ${HISTORY_KINDS[r.kind]}${
