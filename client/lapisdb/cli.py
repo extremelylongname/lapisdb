@@ -183,9 +183,9 @@ def main():
     elif args.cmd == "upload-seds":
         opts = (dict(z_col=args.z_col, p_col=args.p_col) if args.pz else
                 dict(wave_col=args.wave_col, flux_col=args.flux_col, err_col=args.err_col, wave_unit=args.wave_unit, flux_unit=args.flux_unit))
-        failed = upload_folder(c, args.folder, args.label, "pz" if args.pz else "sed", args.manifest, args.code, args.redshift,
+        res = upload_folder(c, args.folder, args.label, "pz" if args.pz else "sed", args.manifest, args.code, args.redshift,
                                args.notes, opts, args.workers)
-        sys.exit(1 if failed else 0)
+        sys.exit(1 if res["failed"] else 0)
     elif args.cmd == "sync":
         sync(c, args.folder, uploads=not args.no_uploads, delete=args.delete)
     elif args.cmd == "admin-ingest":

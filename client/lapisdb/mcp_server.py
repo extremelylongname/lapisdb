@@ -3,6 +3,7 @@ from mcp.server.mcpserver import MCPServer
 
 from .client import Client
 from .sed import read_pz, read_sed
+from .upload import upload_folder
 
 server = MCPServer(
     "lapisdb",
@@ -78,6 +79,19 @@ def upload_pz(source: str, path: str, label: str, code: str | None = None, notes
     uid = client().resolve_one(source)
     data = read_pz(path)
     return {"uid": uid, **client().upload_sed(uid, data, label, code, None, notes, path.rsplit("/", 1)[-1], kind="pz")}
+
+
+@server.tool()
+def upload_sed_folder(folder: str, label: str, pz: bool = False, manifest: str | None = None, code: str | None = None,
+                      redshift: float | None = None, notes: str | None = None, wave_unit: str | None = None,
+                      flux_unit: str | None = None, workers: int = 8) -> dict:
+    """Upload every file in a local folder as an SED fit (or P(z) if pz=True), one file per source, several at a time.
+    The source comes from the file name (09947_1234.csv -> 09947:1234, or a full LAPIS-J... name), or from a manifest CSV
+    with columns file, source and optionally label, code, redshift, notes. Files already uploaded by this user with the
+    same source, label and file name are skipped, so a partial run can be repeated. Returns counts and per-file failures."""
+    opts = {} if pz else dict(wave_unit=wave_unit, flux_unit=flux_unit)
+    return upload_folder(client(), folder, label, "pz" if pz else "sed", manifest, code, redshift, notes, opts, workers,
+                         log=lambda *a: None)  # stdout is the MCP channel
 
 
 def main():

@@ -56,4 +56,4 @@ def upload_folder(client, folder, label, kind="sed", manifest=None, code=None, r
     log(f"Uploaded {counts['uploaded']}, skipped {counts['skipped']} already uploaded, failed {len(failed)}")
     for name, err in failed:
         log(f"  FAILED {name}: {err}")
-    return failed
+    return {**counts, "failed": [{"file": n, "error": e} for n, e in failed]}
