@@ -8,6 +8,7 @@ from .client import Client, save_config
 from .ingest import ingest, upload_background, upload_eazy
 from .sed import read_pz, read_sed
 from .sync import sync
+from .upload import upload_folder
 
 
 def show_source(s):
@@ -97,6 +98,22 @@ def main():
     a.add_argument("--notes")
     a.add_argument("--z-col")
     a.add_argument("--p-col")
+    a = sub.add_parser("upload-seds", help="upload a folder of SED fits (or P(z)s with --pz) in parallel, one file per source")
+    a.add_argument("folder", help="files named by source (09947_2497.csv = 09947:2497, or the full LAPIS-J... name), or use --manifest")
+    a.add_argument("--label", required=True)
+    a.add_argument("--manifest", help="CSV with columns file, source and optionally label, code, redshift, notes (overrides per file)")
+    a.add_argument("--pz", action="store_true", help="the files are P(z)s, not SED fits")
+    a.add_argument("--code")
+    a.add_argument("--redshift", type=float)
+    a.add_argument("--notes")
+    a.add_argument("--workers", type=int, default=8)
+    a.add_argument("--wave-col")
+    a.add_argument("--flux-col")
+    a.add_argument("--err-col")
+    a.add_argument("--wave-unit")
+    a.add_argument("--flux-unit")
+    a.add_argument("--z-col")
+    a.add_argument("--p-col")
     a = sub.add_parser("sync", help="mirror all comments, object types and uploaded fits into a local folder (rsync-style)")
     a.add_argument("folder")
     a.add_argument("--no-uploads", action="store_true", help="skip the uploaded SED fit / P(z) files")
@@ -163,6 +180,12 @@ def main():
         data = read_pz(args.file, args.z_col, args.p_col)
         r = c.upload_sed(uid, data, args.label, args.code, None, args.notes, Path(args.file).name, kind="pz")
         print(f"Uploaded P(z) #{r['id']} ({len(data['z'])} points) to {uid}")
+    elif args.cmd == "upload-seds":
+        opts = (dict(z_col=args.z_col, p_col=args.p_col) if args.pz else
+                dict(wave_col=args.wave_col, flux_col=args.flux_col, err_col=args.err_col, wave_unit=args.wave_unit, flux_unit=args.flux_unit))
+        failed = upload_folder(c, args.folder, args.label, "pz" if args.pz else "sed", args.manifest, args.code, args.redshift,
+                               args.notes, opts, args.workers)
+        sys.exit(1 if failed else 0)
     elif args.cmd == "sync":
         sync(c, args.folder, uploads=not args.no_uploads, delete=args.delete)
     elif args.cmd == "admin-ingest":

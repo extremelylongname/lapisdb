@@ -1120,6 +1120,7 @@ lapisdb classify "Brown dwarf" 09947:1234 09947:5678 --note "F277W-F444W > 1.5" 
 lapisdb downvote "Galaxy" 09947:1234
 lapisdb comment 09947:1234 "Spectroscopic follow-up?"
 lapisdb upload-sed 09947:1234 fit.fits --label "Bagpipes" --wave-unit AA --flux-unit erg/s/cm2/AA
+lapisdb upload-seds fits/ --label "Bagpipes v1"   # whole folder, 8 at a time; files named 09947_1234.csv (or use --manifest); rerun skips done files
 lapisdb upload-pz 09947:1234 pz.txt --label "EAZY rerun"   # columns z, P
 lapisdb sync ~/lapisdb_annotations    # mirror comments, object types and uploaded fits; rerun to fetch only what changed</pre>
   <h3>MCP Server (Claude and Other AI Assistants)</h3>
