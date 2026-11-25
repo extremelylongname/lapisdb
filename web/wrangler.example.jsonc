@@ -3,6 +3,7 @@
   "name": "lapis-db",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
+  "limits": { "cpu_ms": 30000 },  // paid plan only (free plan: remove this line)
   "routes": [{ "pattern": "<your-domain>", "custom_domain": true }],
   // run near the FitsMap server: far-away data centers fetch tiles slowly
   "placement": { "region": "aws:us-west-1" },
